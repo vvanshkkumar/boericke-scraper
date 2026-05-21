@@ -83,11 +83,63 @@ def strip_html_tags(fragment: str) -> str:
     <b>word</b><i>word2</i>
     becomes:
     word word2
-    
+
     """
 
-    # Remove HTML tags
+
     cleaned = re.sub(r"<[^>]+>", " ", fragment)
 
-    # Clean remaining messy text
+    
     return clean_text(cleaned)
+
+
+# ------ # Potency Extraction
+
+ORDINAL_TO_NUM = {
+    "first": "1",
+    "third": "3",
+    "sixth": "6",
+    "thirtieth": "30",
+    "two-hundredth": "200",
+}
+
+
+def extract_potencies(dose_text: str) -> list[str]:
+    potencies = []
+
+    # Numeric potencies: "30c", "6x", "200c", "1m"
+    numeric = re.findall(
+        r"\b(\d+\s*[xXcCmM])\b",
+        dose_text
+    )
+
+    # Clean results:
+    # "30 c" -> "30c"
+    # "6X" -> "6x"
+    potencies.extend(
+        p.replace(" ", "").lower()
+        for p in numeric
+    )
+
+   
+    # "third" -> "3"
+    # "thirtieth" -> "30"
+    lower_text = dose_text.lower()
+
+    for word, number in ORDINAL_TO_NUM.items():
+        if re.search(
+            r"\b" + re.escape(word) + r"\b",
+            lower_text
+        ):
+            potencies.append(number)
+
+    
+    seen = set()
+    unique = []
+
+    for p in potencies:
+        if p not in seen:
+            seen.add(p)
+            unique.append(p)
+
+    return unique
