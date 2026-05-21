@@ -26,6 +26,8 @@ r"<b[^>]*>([A-Z][A-Za-z\s/\-]+?)\.--\s*</b>",
 re.IGNORECASE,
 )
 
+# ----- # logging fucntion
+
 def _setup_logging() -> logging.Logger:
     logger = logging.getLogger("boericke")
     logger.setLevel(logging.DEBUG)
@@ -55,3 +57,37 @@ def _setup_logging() -> logging.Logger:
 
 
 log = _setup_logging()
+
+
+# -------- # Text cleaning functions
+
+
+def clean_text(text: str) -> str:
+    if not text:
+        return ""
+
+    # Convert like (&amp; -> &, &#233; -> é)
+    text = html_lib.unescape(text)
+
+   
+    text = re.sub(r"[\r\n\t]+", " ", text)
+
+    
+    text = re.sub(r" {2,}", " ", text)
+
+    return text.strip()
+
+
+def strip_html_tags(fragment: str) -> str:
+    """
+    <b>word</b><i>word2</i>
+    becomes:
+    word word2
+    
+    """
+
+    # Remove HTML tags
+    cleaned = re.sub(r"<[^>]+>", " ", fragment)
+
+    # Clean remaining messy text
+    return clean_text(cleaned)
