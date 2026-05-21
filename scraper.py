@@ -25,3 +25,33 @@ SECTION_SPLIT_RE = re.compile(
 r"<b[^>]*>([A-Z][A-Za-z\s/\-]+?)\.--\s*</b>",
 re.IGNORECASE,
 )
+
+def _setup_logging() -> logging.Logger:
+    logger = logging.getLogger("boericke")
+    logger.setLevel(logging.DEBUG)
+
+    fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)-7s] %(message)s",
+        datefmt="%H:%M:%S"
+    )
+
+    # Console: INFO and above
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    console.setFormatter(fmt)
+
+    # File: DEBUG and above
+    file_handler = logging.FileHandler(
+        LOG_FILE,
+        encoding="utf-8"
+    )
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(fmt)
+
+    logger.addHandler(console)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+log = _setup_logging()
