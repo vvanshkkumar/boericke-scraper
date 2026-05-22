@@ -181,3 +181,42 @@ def extract_keywords(
         word
         for word, _ in counter.most_common(top_n)
     ]
+
+# ---- # fetch with retry such as 2s 4s 8s wait
+
+def fetch_with_retry(
+    url: str,
+    max_retries: int = 3
+) -> Optional[str]:
+
+    for attempt in range(1, max_retries + 1):
+
+        try:
+            response = requests.get(
+                url,
+                headers=REQUEST_HEADERS,
+                timeout=15
+            )
+
+          
+            response.encoding = "latin-1"
+
+           
+            if response.status_code == 200:
+                return response.text
+
+        except requests.RequestException as exc:
+            log.debug(
+                f"Attempt {attempt}/{max_retries}: {exc}"
+            )
+
+     
+        if attempt < max_retries:
+            wait = (
+                RETRY_BACKOFF_BASE ** attempt
+            )  # 2, 4, 8 sec
+
+            time.sleep(wait)
+
+   
+    return None
