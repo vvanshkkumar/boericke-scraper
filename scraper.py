@@ -227,3 +227,48 @@ def fetch_with_retry(
 
    
     return None
+
+# ----- # fetching letter page
+
+
+def log_failed_url(
+    url: str,
+    reason: str = ""
+) -> None:
+    """
+    Save failed URLs so they can
+    be retried later.
+    """
+
+    with open(
+        FAILED_URLS_FILE,
+        "a",
+        encoding="utf-8"
+    ) as f:
+
+        f.write(
+            f"{url} | {reason}\n"
+        )
+
+def fetch_letter_index(
+    letter: str
+) -> Optional[str]:
+    """
+    Example:
+    letter="a"
+    fetches:
+    http://homeoint.org/books/boericmm/a.htm
+    """
+
+    url = f"{BASE_URL}{letter}.htm"
+
+    html = fetch_with_retry(url)
+
+    if html is None:
+        log_failed_url(
+            url,
+            reason="Letter index unreachable"
+        )
+
+    return html
+
