@@ -332,3 +332,101 @@ def parse_remedy_links(
         })
 
     return results
+
+# ---- # Extract all details (core function)
+
+def scrape_remedy_page(
+    url: str,
+    abbreviation: str,
+    letter: str
+) -> Optional[dict]:
+
+    # Fetch webpage HTML
+    html = fetch_with_retry(url)
+
+    if html is None:
+        log_failed_url(
+            url,
+            "Page fetch failed"
+        )
+        return None
+
+    soup = BeautifulSoup(
+        html,
+        "lxml"
+    )
+
+    # Step 1:
+    # Extract remedy names
+    full_name, common_name = (
+        _extract_names(soup)
+    )
+
+    # Step 2:
+    # Extract general paragraph
+    # and symptom sections
+    general, sections = (
+        _extract_general_and_sections(
+            soup,
+            full_name,
+            common_name
+        )
+    )
+
+    # Step 3:
+    # Move Relationship section
+    # into dedicated field
+    relationships = (
+        _extract_relationships(
+            sections
+        )
+    )
+
+    # Bonus 1:
+    # Extract potencies from Dose
+    potencies = extract_potencies(
+        sections.get("Dose", "")
+    )
+
+    # Bonus 2:
+    # Extract keywords
+    combined = " ".join(
+        [general]
+        + list(sections.values())
+    )
+
+    keywords = extract_keywords(
+        combined
+    )
+
+    return {
+        "abbreviation":
+        abbreviation,
+
+        "full_name":
+        full_name,
+
+        "common_name":
+        common_name,
+
+        "source_url":
+        url,
+
+        "letter":
+        letter.upper(),
+
+        "general":
+        general,
+
+        "sections":
+        sections,
+
+        "relationships":
+        relationships,
+
+        "potencies":
+        potencies,
+
+        "keywords":
+        keywords,
+    }
