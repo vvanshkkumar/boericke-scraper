@@ -19,6 +19,13 @@ FAILED_URLS_FILE = "failed_urls.txt"
 LOG_FILE = "scraper.log"
 MAX_RETRIES = 3
 RETRY_BACKOFF_BASE = 2 # wait : 2s, 4s, 8s
+REQUEST_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36"
+    )
+}
 
 # Splits HTML on section headers like <b>Mind.--</b>
 SECTION_SPLIT_RE = re.compile(
