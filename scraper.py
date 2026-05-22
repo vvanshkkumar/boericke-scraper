@@ -26,6 +26,7 @@ REQUEST_HEADERS = {
         "Chrome/124.0.0.0 Safari/537.36"
     )
 }
+SITE_HEADER_SIGNALS = ("MATERIA MEDICA", "BOERICKE", "Presented by", "di-T")
 
 # Splits HTML on section headers like <b>Mind.--</b>
 SECTION_SPLIT_RE = re.compile(
@@ -341,7 +342,7 @@ def scrape_remedy_page(
     letter: str
 ) -> Optional[dict]:
 
-    # Fetch webpage HTML
+    
     html = fetch_with_retry(url)
 
     if html is None:
@@ -356,15 +357,12 @@ def scrape_remedy_page(
         "lxml"
     )
 
-    # Step 1:
-    # Extract remedy names
+    
     full_name, common_name = (
         _extract_names(soup)
     )
 
-    # Step 2:
-    # Extract general paragraph
-    # and symptom sections
+
     general, sections = (
         _extract_general_and_sections(
             soup,
@@ -373,23 +371,18 @@ def scrape_remedy_page(
         )
     )
 
-    # Step 3:
-    # Move Relationship section
-    # into dedicated field
+   
     relationships = (
         _extract_relationships(
             sections
         )
     )
 
-    # Bonus 1:
-    # Extract potencies from Dose
+    
     potencies = extract_potencies(
         sections.get("Dose", "")
     )
 
-    # Bonus 2:
-    # Extract keywords
     combined = " ".join(
         [general]
         + list(sections.values())
@@ -430,3 +423,203 @@ def scrape_remedy_page(
         "keywords":
         keywords,
     }
+
+def clean_section_name(raw: str) -> str:
+    name = raw.strip()
+    name = re.sub(r"\.?-+$", "", name)
+    name = re.sub(r"\.$", "", name)
+    return name.strip()
+
+
+def _extract_names(soup: BeautifulSoup) -> tuple[str, Optional[str]]:
+    blockquote = soup.find("blockquote") or soup
+
+    for b_tag in blockquote.find_all("b"):
+        raw = b_tag.get_text(separator="\n")
+
+        # Skip the site header bold tag
+        if any(sig.lower() in raw.lower() for sig in SITE_HEADER_SIGNALS):
+            continue
+
+        # Stop at section headers
+        stripped = raw.strip()
+        if re.match(r"^[A-Z][A-Za-z\s/\-]+?\.--", stripped):
+            break
+
+        # Format A: multi-line tag (name on line 1, common name on line 2)
+        lines = [clean_text(ln) for ln in raw.split("\n") if clean_text(ln)]
+        if len(lines) >= 2:
+            first = lines[0]
+            second = lines[1]
+            if re.match(r"^[A-Z][A-Z\s\-\.]+$", first) and len(first) >= 3:
+                full_name = first
+                if not re.match(r"^[A-Z\s\-]+$", second):
+                    common_name = re.sub(r"\s*\([A-Z\-]+\)\s*$", "", second).strip()
+                    common_name = common_name if common_name else None
+                else:
+                    common_name = None
+                return full_name.strip(), common_name
+
+        # Format B/C: single line
+        if lines:
+            single = lines[0]
+            match = re.match(r"^([A-Z][A-Z\s\-\.]+?)\s+([A-Z][a-z].+)$", single)
+            if match:
+                full_name = match.group(1).strip()
+                common_raw = match.group(2).strip()
+                common_name = re.sub(r"\s*\([A-Z\-]+\)\s*$", "", common_raw).strip()
+                return full_name, common_name if common_name else None
+
+            if re.match(r"^[A-Z][A-Z\s\-\.]+$", single) and len(single) >= 3:
+                return single.strip(), None
+
+    return "", None
+
+
+def _trim_to_general(
+    pre_text: str,
+    full_name: str,
+    common_name: Optional[str],
+) -> str:
+    remainder = pre_text
+
+    if full_name and full_name in pre_text:
+        idx = pre_text.index(full_name) + len(full_name)
+        remainder = pre_text[idx:].strip()
+
+    if common_name and remainder.startswith(common_name):
+        remainder = remainder[len(common_name):].strip()
+
+    if not full_name or full_name not in pre_text:
+        m = re.search(r"[A-Z][a-z]", remainder)
+        if m:
+            remainder = remainder[m.start():]
+
+    remainder = re.sub(
+        r"\s*Copyright\s*.*$", "", remainder, flags=re.IGNORECASE
+    ).strip()
+
+    return clean_text(remainder)
+
+
+def _extract_general_and_sections(
+    soup: BeautifulSoup,
+    full_name: str,
+    common_name: Optional[str],
+) -> tuple[str, dict[str, str]]:
+    blockquote = soup.find("blockquote") or soup
+    bq_html = str(blockquote)
+
+    parts = SECTION_SPLIT_RE.split(bq_html)
+
+    pre_text = strip_html_tags(parts[0])
+    general = _trim_to_general(pre_text, full_name, common_name)
+
+    sections: dict[str, str] = {}
+    for i in range(1, len(parts) - 1, 2):
+        sec_name = clean_section_name(parts[i])
+        sec_html = parts[i + 1] if (i + 1) < len(parts) else ""
+        sec_text = strip_html_tags(sec_html)
+        if sec_name and sec_text:
+            sections[sec_name] = sec_text
+
+    return general, sections
+
+
+def _extract_relationships(sections: dict[str, str]) -> Optional[str]:
+    for key in list(sections.keys()):
+        if key.lower().startswith("relationship"):
+            value = sections.pop(key)
+            return value if value else None
+    return None
+# ----- #
+
+
+def save_output(remedies: list[dict], filepath: str) -> None:
+    with open(filepath, "w", encoding="utf-8") as fh:
+        json.dump(remedies, fh, ensure_ascii=False, indent=2)
+
+def load_existing_output(filepath: str) -> list[dict]:
+    if not os.path.exists(filepath):
+        return []
+    try:
+        with open(filepath, "r", encoding="utf-8") as fh:
+            return json.load(fh)
+    except (json.JSONDecodeError, IOError) as exc:
+        log.warning(f"Could not load existing output ({exc}). Starting fresh.")
+        return []
+    
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Scrape Boericke's Homoeopathic Materia Medica into JSON."
+    )
+    parser.add_argument("--letter", type=str, default=None)
+    parser.add_argument("--delay",  type=float, default=None)
+    parser.add_argument("--output", type=str, default=DEFAULT_OUTPUT)
+    parser.add_argument("--upload", action="store_true")
+    parser.add_argument("--mongo-uri", type=str, default="mongodb://localhost:27017/")
+    args = parser.parse_args()
+
+    letters_to_scrape = [args.letter.lower()] if args.letter else LETTERS
+
+    all_remedies: list[dict] = load_existing_output(args.output)
+    scraped_urls: set[str]   = {r["source_url"] for r in all_remedies}
+    start_time               = datetime.now()
+
+    for letter in letters_to_scrape:
+        log.info(f"{'─' * 20} Letter {letter.upper()} {'─' * 20}")
+
+        index_html = fetch_letter_index(letter)
+        if index_html is None:
+            log.error(f"Skipping letter '{letter.upper()}': index page failed.")
+            continue
+
+        remedy_links = parse_remedy_links(index_html, letter)
+        if not remedy_links:
+            continue
+
+        total = len(remedy_links)
+        count = 0
+
+        for remedy in remedy_links:
+            url    = remedy["url"]
+            abbrev = remedy["abbreviation"]
+
+            if url in scraped_urls:
+                count += 1
+                continue
+
+            data = scrape_remedy_page(url, abbrev, letter)
+
+            if data:
+                all_remedies.append(data)
+                scraped_urls.add(url)
+                count += 1
+                display_name = data.get("full_name") or abbrev
+                print(f"[{letter.upper()}] Scraped {count}/{total} - {display_name}")
+            else:
+                log.error(f"Failed to scrape: {url}")
+
+            pause = args.delay if args.delay is not None else random.uniform(0.5, 1.0)
+            time.sleep(pause)
+
+        save_output(all_remedies, args.output)
+        log.info(f"Letter {letter.upper()} done. {count}/{total} remedies saved.")
+
+    save_output(all_remedies, args.output)
+
+    elapsed    = datetime.now() - start_time
+    mins, secs = divmod(int(elapsed.total_seconds()), 60)
+
+    print("\n" + "━" * 50)
+    print("  Scrape Complete")
+    print(f"  Total remedies scraped   : {len(all_remedies)}")
+    print(f"  With common name         : {sum(1 for r in all_remedies if r.get('common_name'))}")
+    print(f"  With relationships       : {sum(1 for r in all_remedies if r.get('relationships'))}")
+    print(f"  Time taken               : {mins}m {secs}s")
+    print(f"  Output saved to          : {args.output}")
+    print("━" * 50 + "\n")
+
+
+if __name__ == "__main__":
+    main()    
