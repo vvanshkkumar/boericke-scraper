@@ -272,3 +272,63 @@ def fetch_letter_index(
 
     return html
 
+# ---- # 
+
+def parse_remedy_links(
+    html: str,
+    letter: str
+) -> list[dict]:
+
+    soup = BeautifulSoup(
+        html,
+        "lxml"
+    )
+
+    results = []
+
+    blockquote = soup.find(
+        "blockquote"
+    )
+
+    if not blockquote:
+        return results
+
+   
+    letter_prefix = f"{letter}/"
+
+    for a_tag in blockquote.find_all(
+        "a",
+        href=True
+    ):
+
+        href = (
+            a_tag["href"]
+            .strip()
+        )
+
+        abbrev = a_tag.get_text(
+            strip=True
+        )
+
+       
+        if not href.lower().startswith(
+            letter_prefix.lower()
+        ):
+            continue
+
+    
+        if (
+            not abbrev
+            or len(abbrev) < 2
+        ):
+            continue
+
+        results.append({
+            "abbreviation":
+            abbrev.upper(),
+
+            "url":
+            BASE_URL + href
+        })
+
+    return results
