@@ -143,3 +143,41 @@ def extract_potencies(dose_text: str) -> list[str]:
             unique.append(p)
 
     return unique
+
+# ----- # Symptomn Extraction
+
+from collections import Counter
+
+
+STOPWORDS = {
+    "the", "a", "an", "and", "or",
+    "with", "from", "dose",
+    "potency", "remedy", "compare"
+}
+
+
+def extract_keywords(
+    text: str,
+    top_n: int = 10
+) -> list[str]:
+
+
+    tokens = re.findall(
+        r"\b[a-z]{4,}\b",
+        text.lower()
+    )
+
+    
+    meaningful = [
+        t for t in tokens
+        if t not in STOPWORDS
+    ]
+
+    
+    counter = Counter(meaningful)
+
+
+    return [
+        word
+        for word, _ in counter.most_common(top_n)
+    ]
