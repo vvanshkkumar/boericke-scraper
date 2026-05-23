@@ -181,7 +181,7 @@ Each remedy in `boericke_remedies.json` follows this schema:
 
 The screenshot below shows the scraper completing the full A–Z run on my machine:
 
-![Terminal Run](screenshot_terminal_run.png)
+![Terminal Run](screenshots/screenshot_terminal_run.png)
 
 ---
 
@@ -279,7 +279,7 @@ python3 validator.py
 
 The validator screenshot below shows the result from my final run — **0 errors**, and only 2 minor warnings (both are known edge cases where the site itself uses a slightly different filename from the abbreviation — not a scraper bug):
 
-![Validator Output](screenshot_validator.png)
+![Validator Output](screenshots/screenshot_validator.png)
 
 I added the validator because during development I kept second-guessing whether the parser was working correctly. Having a script that checked 688 entries automatically and gave me a clean report was much better than manually spot-checking a handful of entries.
 
