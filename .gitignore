@@ -1,0 +1,14 @@
+# Virtual environment
+venv/
+
+# macOS system files
+.DS_Store
+
+# Runtime generated files
+scraper.log
+failed_urls.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
