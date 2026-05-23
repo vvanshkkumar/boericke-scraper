@@ -33,7 +33,7 @@ for index, remedy in enumerate(remedies):
     general_text = remedy.get("general", "")
     
     
-    if len(general_text) > 0 and len(general_text) < 30:
+    if len(general_text) > 0 and len(general_text) < 10:
         warnings.append(f"[{abbrev}] 'general' text is very short ({len(general_text)} chars). Might be truncated.")
         
     
