@@ -402,6 +402,19 @@ def main() -> None:
     print(f"  Output saved to          : {args.output}")
     print("━" * 50 + "\n")
 
+    if args.upload:
+        _upload_to_mongo(all_remedies, args.mongo_uri)
+
+def _upload_to_mongo(remedies: list[dict], uri: str) -> None:
+    try:
+        from pymongo import MongoClient
+        client = MongoClient(uri)
+        col = client["jarvis"]["remedies"]
+        col.delete_many({})
+        col.insert_many(remedies)
+        print(f"Uploaded {len(remedies)} remedies to MongoDB.")
+    except Exception as exc:
+        log.error(f"MongoDB upload failed: {exc}")
    
 
 
